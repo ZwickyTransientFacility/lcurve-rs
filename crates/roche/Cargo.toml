@@ -1,0 +1,12 @@
+[package]
+name = "lcurve-roche"
+version = "0.1.0"
+edition = "2021"
+description = "Roche geometry for binary star systems"
+
+[dependencies]
+lcurve-subs = { path = "../subs" }
+thiserror = { workspace = true }
+
+[dev-dependencies]
+approx = { workspace = true }

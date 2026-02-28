@@ -1,0 +1,76 @@
+name: Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  rust-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Run Rust tests
+        run: cargo test
+
+      - name: Build release binary
+        run: cargo build --release
+
+  python-tests:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Create virtualenv and install dependencies
+        run: |
+          python -m venv .venv
+          . .venv/bin/activate
+          pip install numpy pytest maturin
+
+      - name: Build Python bindings
+        working-directory: python
+        run: |
+          . ../.venv/bin/activate
+          maturin develop --release
+
+      - name: Test Python bindings
+        run: |
+          . .venv/bin/activate
+          python -c "
+          import lcurve_rs
+          import numpy as np
+
+          model = lcurve_rs.Model('test_data/test_model.dat')
+          assert model.q == 0.5
+
+          result = model.light_curve(time1=-0.2, time2=1.2, ntime=100)
+          assert result.flux.shape == (100,)
+          assert result.wdwarf > 0
+
+          model.q = 0.3
+          result2 = model.light_curve(time1=-0.2, time2=1.2, ntime=50)
+          assert result2.flux.shape == (50,)
+
+          times = np.linspace(0, 1, 20)
+          result3 = model.light_curve(times=times)
+          assert result3.times.shape == (20,)
+
+          print('All Python binding tests passed')
+          "

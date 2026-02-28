@@ -1,0 +1,13 @@
+[build-system]
+requires = ["maturin>=1.0"]
+build-backend = "maturin"
+
+[project]
+name = "lcurve_rs"
+version = "0.1.0"
+description = "Python bindings for lcurve_rs — a fast Rust light curve engine for eclipsing binaries"
+requires-python = ">=3.9"
+dependencies = ["numpy"]
+
+[tool.maturin]
+module-name = "lcurve_rs._lcurve_rs"

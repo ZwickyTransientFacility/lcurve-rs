@@ -1,0 +1,12 @@
+[package]
+name = "lcurve-subs"
+version = "0.1.0"
+edition = "2021"
+description = "Numerical utilities and Vec3 for lcurve"
+
+[dependencies]
+thiserror = { workspace = true }
+nalgebra = { workspace = true }
+
+[dev-dependencies]
+approx = { workspace = true }

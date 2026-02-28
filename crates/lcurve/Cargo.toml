@@ -1,0 +1,15 @@
+[package]
+name = "lcurve"
+version = "0.1.0"
+edition = "2021"
+description = "White dwarf binary light curve engine"
+
+[dependencies]
+lcurve-subs = { path = "../subs" }
+lcurve-roche = { path = "../roche" }
+thiserror = { workspace = true }
+nalgebra = { workspace = true }
+rayon = { workspace = true }
+
+[dev-dependencies]
+approx = { workspace = true }
