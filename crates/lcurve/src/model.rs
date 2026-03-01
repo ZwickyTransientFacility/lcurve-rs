@@ -453,6 +453,84 @@ impl Model {
         }
     }
 
+    /// Set a physical parameter's value by name.
+    ///
+    /// Returns `true` if the name was recognised, `false` otherwise.
+    pub fn set_param_value(&mut self, name: &str, value: f64) -> bool {
+        macro_rules! do_set {
+            ($( $key:literal => $field:ident ),+ $(,)?) => {
+                match name {
+                    $( $key => { self.$field.value = value; true } )+
+                    _ => false,
+                }
+            };
+        }
+        do_set! {
+            "q" => q, "iangle" => iangle, "r1" => r1, "r2" => r2,
+            "cphi3" => cphi3, "cphi4" => cphi4, "spin1" => spin1, "spin2" => spin2,
+            "t1" => t1, "t2" => t2,
+            "ldc1_1" => ldc1_1, "ldc1_2" => ldc1_2, "ldc1_3" => ldc1_3, "ldc1_4" => ldc1_4,
+            "ldc2_1" => ldc2_1, "ldc2_2" => ldc2_2, "ldc2_3" => ldc2_3, "ldc2_4" => ldc2_4,
+            "velocity_scale" => velocity_scale, "beam_factor1" => beam_factor1, "beam_factor2" => beam_factor2,
+            "t0" => t0, "period" => period, "pdot" => pdot, "deltat" => deltat,
+            "gravity_dark1" => gravity_dark1, "gravity_dark2" => gravity_dark2, "absorb" => absorb,
+            "slope" => slope, "quad" => quad, "cube" => cube, "third" => third,
+            "rdisc1" => rdisc1, "rdisc2" => rdisc2, "height_disc" => height_disc, "beta_disc" => beta_disc,
+            "temp_disc" => temp_disc, "texp_disc" => texp_disc,
+            "lin_limb_disc" => lin_limb_disc, "quad_limb_disc" => quad_limb_disc,
+            "temp_edge" => temp_edge, "absorb_edge" => absorb_edge,
+            "radius_spot" => radius_spot, "length_spot" => length_spot, "height_spot" => height_spot,
+            "expon_spot" => expon_spot, "epow_spot" => epow_spot, "angle_spot" => angle_spot,
+            "yaw_spot" => yaw_spot, "temp_spot" => temp_spot, "tilt_spot" => tilt_spot, "cfrac_spot" => cfrac_spot,
+            "stsp11_long" => stsp11_long, "stsp11_lat" => stsp11_lat, "stsp11_fwhm" => stsp11_fwhm, "stsp11_tcen" => stsp11_tcen,
+            "stsp12_long" => stsp12_long, "stsp12_lat" => stsp12_lat, "stsp12_fwhm" => stsp12_fwhm, "stsp12_tcen" => stsp12_tcen,
+            "stsp13_long" => stsp13_long, "stsp13_lat" => stsp13_lat, "stsp13_fwhm" => stsp13_fwhm, "stsp13_tcen" => stsp13_tcen,
+            "stsp21_long" => stsp21_long, "stsp21_lat" => stsp21_lat, "stsp21_fwhm" => stsp21_fwhm, "stsp21_tcen" => stsp21_tcen,
+            "stsp22_long" => stsp22_long, "stsp22_lat" => stsp22_lat, "stsp22_fwhm" => stsp22_fwhm, "stsp22_tcen" => stsp22_tcen,
+            "uesp_long1" => uesp_long1, "uesp_long2" => uesp_long2, "uesp_lathw" => uesp_lathw,
+            "uesp_taper" => uesp_taper, "uesp_temp" => uesp_temp,
+        }
+    }
+
+    /// Get a physical parameter's value by name.
+    ///
+    /// Returns `None` if the name was not recognised.
+    pub fn get_param_value(&self, name: &str) -> Option<f64> {
+        macro_rules! do_get {
+            ($( $key:literal => $field:ident ),+ $(,)?) => {
+                match name {
+                    $( $key => Some(self.$field.value), )+
+                    _ => None,
+                }
+            };
+        }
+        do_get! {
+            "q" => q, "iangle" => iangle, "r1" => r1, "r2" => r2,
+            "cphi3" => cphi3, "cphi4" => cphi4, "spin1" => spin1, "spin2" => spin2,
+            "t1" => t1, "t2" => t2,
+            "ldc1_1" => ldc1_1, "ldc1_2" => ldc1_2, "ldc1_3" => ldc1_3, "ldc1_4" => ldc1_4,
+            "ldc2_1" => ldc2_1, "ldc2_2" => ldc2_2, "ldc2_3" => ldc2_3, "ldc2_4" => ldc2_4,
+            "velocity_scale" => velocity_scale, "beam_factor1" => beam_factor1, "beam_factor2" => beam_factor2,
+            "t0" => t0, "period" => period, "pdot" => pdot, "deltat" => deltat,
+            "gravity_dark1" => gravity_dark1, "gravity_dark2" => gravity_dark2, "absorb" => absorb,
+            "slope" => slope, "quad" => quad, "cube" => cube, "third" => third,
+            "rdisc1" => rdisc1, "rdisc2" => rdisc2, "height_disc" => height_disc, "beta_disc" => beta_disc,
+            "temp_disc" => temp_disc, "texp_disc" => texp_disc,
+            "lin_limb_disc" => lin_limb_disc, "quad_limb_disc" => quad_limb_disc,
+            "temp_edge" => temp_edge, "absorb_edge" => absorb_edge,
+            "radius_spot" => radius_spot, "length_spot" => length_spot, "height_spot" => height_spot,
+            "expon_spot" => expon_spot, "epow_spot" => epow_spot, "angle_spot" => angle_spot,
+            "yaw_spot" => yaw_spot, "temp_spot" => temp_spot, "tilt_spot" => tilt_spot, "cfrac_spot" => cfrac_spot,
+            "stsp11_long" => stsp11_long, "stsp11_lat" => stsp11_lat, "stsp11_fwhm" => stsp11_fwhm, "stsp11_tcen" => stsp11_tcen,
+            "stsp12_long" => stsp12_long, "stsp12_lat" => stsp12_lat, "stsp12_fwhm" => stsp12_fwhm, "stsp12_tcen" => stsp12_tcen,
+            "stsp13_long" => stsp13_long, "stsp13_lat" => stsp13_lat, "stsp13_fwhm" => stsp13_fwhm, "stsp13_tcen" => stsp13_tcen,
+            "stsp21_long" => stsp21_long, "stsp21_lat" => stsp21_lat, "stsp21_fwhm" => stsp21_fwhm, "stsp21_tcen" => stsp21_tcen,
+            "stsp22_long" => stsp22_long, "stsp22_lat" => stsp22_lat, "stsp22_fwhm" => stsp22_fwhm, "stsp22_tcen" => stsp22_tcen,
+            "uesp_long1" => uesp_long1, "uesp_long2" => uesp_long2, "uesp_lathw" => uesp_lathw,
+            "uesp_taper" => uesp_taper, "uesp_temp" => uesp_temp,
+        }
+    }
+
     /// Get LDC struct for star 1.
     pub fn get_ldc1(&self) -> LDC {
         LDC::new(
@@ -467,5 +545,95 @@ impl Model {
             self.ldc2_1.value, self.ldc2_2.value, self.ldc2_3.value, self.ldc2_4.value,
             self.mucrit2, self.limb2,
         )
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::types::LDCType;
+
+    /// Build a minimal Model without file I/O.
+    fn make_model() -> Model {
+        let p = |v: f64| Pparam { value: v, range: 0.1, dstep: 0.001, vary: false, defined: true };
+        Model {
+            q: p(0.5), iangle: p(82.0), r1: p(0.015), r2: p(-1.0),
+            cphi3: p(0.0), cphi4: p(0.0), spin1: p(1.0), spin2: p(1.0),
+            t1: p(15000.0), t2: p(3500.0),
+            ldc1_1: p(0.0), ldc1_2: p(0.0), ldc1_3: p(0.0), ldc1_4: p(0.0),
+            ldc2_1: p(0.0), ldc2_2: p(0.0), ldc2_3: p(0.0), ldc2_4: p(0.0),
+            velocity_scale: p(300.0), beam_factor1: p(1.0), beam_factor2: p(1.0),
+            t0: p(0.0), period: p(0.1), pdot: p(0.0), deltat: p(0.0),
+            gravity_dark1: p(0.0), gravity_dark2: p(0.0), absorb: p(1.0),
+            slope: p(0.0), quad: p(0.0), cube: p(0.0), third: p(0.0),
+            rdisc1: p(0.0), rdisc2: p(0.0), height_disc: p(0.0), beta_disc: p(0.0),
+            temp_disc: p(0.0), texp_disc: p(0.0), lin_limb_disc: p(0.0), quad_limb_disc: p(0.0),
+            temp_edge: p(0.0), absorb_edge: p(0.0),
+            radius_spot: p(0.0), length_spot: p(0.0), height_spot: p(0.0),
+            expon_spot: p(0.0), epow_spot: p(0.0), angle_spot: p(0.0),
+            yaw_spot: p(0.0), temp_spot: p(0.0), tilt_spot: p(0.0), cfrac_spot: p(0.0),
+            stsp11_long: Pparam::default(), stsp11_lat: Pparam::default(),
+            stsp11_fwhm: Pparam::default(), stsp11_tcen: Pparam::default(),
+            stsp12_long: Pparam::default(), stsp12_lat: Pparam::default(),
+            stsp12_fwhm: Pparam::default(), stsp12_tcen: Pparam::default(),
+            stsp13_long: Pparam::default(), stsp13_lat: Pparam::default(),
+            stsp13_fwhm: Pparam::default(), stsp13_tcen: Pparam::default(),
+            stsp21_long: Pparam::default(), stsp21_lat: Pparam::default(),
+            stsp21_fwhm: Pparam::default(), stsp21_tcen: Pparam::default(),
+            stsp22_long: Pparam::default(), stsp22_lat: Pparam::default(),
+            stsp22_fwhm: Pparam::default(), stsp22_tcen: Pparam::default(),
+            uesp_long1: Pparam::default(), uesp_long2: Pparam::default(),
+            uesp_lathw: Pparam::default(), uesp_taper: Pparam::default(),
+            uesp_temp: Pparam::default(),
+            delta_phase: 0.01, nlat1f: 100, nlat2f: 100, nlat1c: 50, nlat2c: 50,
+            npole: false, nlatfill: 0, nlngfill: 0, lfudge: 0.0, llo: 0.0, lhi: 0.0,
+            phase1: 0.05, phase2: 0.05, wavelength: 4700.0,
+            roche1: false, roche2: true, eclipse1: true, eclipse2: true,
+            glens1: false, use_radii: true, tperiod: 0.1,
+            gdark_bolom1: false, gdark_bolom2: false,
+            mucrit1: 0.0, mucrit2: 0.0,
+            limb1: LDCType::Poly, limb2: LDCType::Poly,
+            mirror: false, add_disc: false, nrad: 50, opaque: false,
+            add_spot: false, nspot: 50, iscale: false,
+        }
+    }
+
+    #[test]
+    fn get_param_value_returns_correct_values() {
+        let mdl = make_model();
+        assert_eq!(mdl.get_param_value("q"), Some(0.5));
+        assert_eq!(mdl.get_param_value("iangle"), Some(82.0));
+        assert_eq!(mdl.get_param_value("t1"), Some(15000.0));
+        assert_eq!(mdl.get_param_value("period"), Some(0.1));
+    }
+
+    #[test]
+    fn get_param_value_unknown_returns_none() {
+        let mdl = make_model();
+        assert_eq!(mdl.get_param_value("nonexistent"), None);
+        assert_eq!(mdl.get_param_value(""), None);
+    }
+
+    #[test]
+    fn set_param_value_modifies_value() {
+        let mut mdl = make_model();
+        assert!(mdl.set_param_value("q", 0.42));
+        assert_eq!(mdl.q.value, 0.42);
+        // Other Pparam fields unchanged
+        assert_eq!(mdl.q.range, 0.1);
+        assert_eq!(mdl.q.dstep, 0.001);
+    }
+
+    #[test]
+    fn set_param_value_unknown_returns_false() {
+        let mut mdl = make_model();
+        assert!(!mdl.set_param_value("nonexistent", 1.0));
+    }
+
+    #[test]
+    fn set_then_get_round_trips() {
+        let mut mdl = make_model();
+        mdl.set_param_value("iangle", 85.5);
+        assert_eq!(mdl.get_param_value("iangle"), Some(85.5));
     }
 }

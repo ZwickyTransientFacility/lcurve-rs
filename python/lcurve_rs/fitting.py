@@ -291,12 +291,52 @@ class Fitter:
             return -math.inf
         return lp + self.log_likelihood(theta)
 
+    # -- Batch (vectorised) core functions --
+
+    def log_likelihood_batch(self, theta_batch: np.ndarray) -> np.ndarray:
+        """Vectorised log-likelihood for an (N, ndim) array of parameter sets.
+
+        Uses ``chisq_batch`` on the Rust side so the data file is read
+        once and evaluations run in parallel via Rayon.
+        """
+        theta_batch = np.ascontiguousarray(theta_batch, dtype=np.float64)
+        chisq = self._model.chisq_batch(
+            self._data, self.param_names, theta_batch, self._scale,
+        )
+        ll = -0.5 * np.asarray(chisq, dtype=np.float64)
+        ll[~np.isfinite(ll)] = -np.inf
+        return ll
+
+    def log_probability_batch(self, theta_batch: np.ndarray) -> np.ndarray:
+        """Vectorised log_prior + log_likelihood for (N, ndim) array.
+
+        Priors are evaluated per-row in Python (cheap).  Only rows that
+        pass the prior are forwarded to the Rust batch evaluator.
+        """
+        theta_batch = np.atleast_2d(theta_batch)
+        n = theta_batch.shape[0]
+        lp = np.empty(n)
+        for i in range(n):
+            lp[i] = self.log_prior(theta_batch[i])
+
+        result = np.full(n, -np.inf)
+        finite_mask = np.isfinite(lp)
+        if finite_mask.any():
+            ll = self.log_likelihood_batch(theta_batch[finite_mask])
+            result[finite_mask] = lp[finite_mask] + ll
+        return result
+
     # -- Backend runners --
 
-    def run_ultranest(self, **kwargs) -> FitResult:
+    def run_ultranest(self, vectorize: bool = True, **kwargs) -> FitResult:
         """Run UltraNest nested sampling.
 
-        All keyword arguments are forwarded to
+        Parameters
+        ----------
+        vectorize : bool
+            Use batch evaluation of live points (default True).
+
+        All other keyword arguments are forwarded to
         ``ultranest.ReactiveNestedSampler.run()``.
 
         Returns
@@ -305,10 +345,16 @@ class Fitter:
         """
         import ultranest
 
+        if vectorize:
+            log_fn = self.log_likelihood_batch
+        else:
+            log_fn = self.log_likelihood
+
         sampler = ultranest.ReactiveNestedSampler(
             self.param_names,
-            self.log_likelihood,
+            log_fn,
             self.prior_transform,
+            vectorized=vectorize,
         )
         raw = sampler.run(**kwargs)
         samples = np.array(raw["weighted_samples"]["points"])
@@ -371,6 +417,7 @@ class Fitter:
         nwalkers: int = 0,
         nsteps: int = 5000,
         burn: int = 1000,
+        vectorize: bool = True,
         **kwargs,
     ) -> FitResult:
         """Run emcee MCMC.
@@ -383,6 +430,10 @@ class Fitter:
             Total MCMC steps (default 5000).
         burn : int
             Burn-in steps to discard (default 1000).
+        vectorize : bool
+            Use batch evaluation across walkers (default True).
+            This reads the data file once per step instead of once
+            per walker and parallelises across walkers via Rayon.
 
         All other keyword arguments are forwarded to
         ``emcee.EnsembleSampler.run_mcmc()``.
@@ -410,8 +461,14 @@ class Fitter:
         for i, prior in enumerate(self.priors):
             p0[:, i] = np.clip(p0[:, i], prior.low, prior.high)
 
+        if vectorize:
+            log_fn = self.log_probability_batch
+        else:
+            log_fn = self.log_probability
+
         sampler = emcee.EnsembleSampler(
-            nwalkers, self.ndim, self.log_probability,
+            nwalkers, self.ndim, log_fn,
+            vectorize=vectorize,
         )
         sampler.run_mcmc(p0, nsteps, **kwargs)
 

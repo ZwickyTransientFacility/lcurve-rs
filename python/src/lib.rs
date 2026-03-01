@@ -462,6 +462,58 @@ impl Model {
         })
     }
 
+    /// Evaluate chi-squared for a batch of parameter sets in parallel.
+    ///
+    /// Parameters
+    /// ----------
+    /// data : str
+    ///     Path to an lcurve data file (read once for all evaluations).
+    /// names : list[str]
+    ///     Parameter names being varied.
+    /// values : numpy.ndarray
+    ///     2-D array of shape ``(N, len(names))`` with parameter values.
+    /// scale : bool, optional
+    ///     Autoscale each model to the data (default True).
+    ///
+    /// Returns
+    /// -------
+    /// numpy.ndarray
+    ///     1-D array of length N with chi-squared values.
+    ///     Unphysical parameter sets produce ``NaN``.
+    #[pyo3(signature = (data, names, values, scale=true))]
+    fn chisq_batch<'py>(
+        &self,
+        py: Python<'py>,
+        data: &str,
+        names: Vec<String>,
+        values: numpy::PyReadonlyArray2<'_, f64>,
+        scale: bool,
+    ) -> PyResult<Bound<'py, PyArray1<f64>>> {
+        let datum_vec = lcurve::types::read_data(data)
+            .map_err(|e| PyValueError::new_err(e.to_string()))?;
+
+        let arr = values.as_array();
+        let (nsets, ncols) = (arr.nrows(), arr.ncols());
+        if ncols != names.len() {
+            return Err(PyValueError::new_err(format!(
+                "values has {} columns but {} names were given", ncols, names.len()
+            )));
+        }
+
+        // Flatten to row-major Vec<f64>
+        let flat: Vec<f64> = arr.iter().copied().collect();
+        let name_refs: Vec<&str> = names.iter().map(|s| s.as_str()).collect();
+
+        let result = py.allow_threads(|| {
+            lcurve::orchestration::chisq_batch(
+                &self.inner, &datum_vec, &name_refs, &flat, scale,
+            )
+        });
+
+        debug_assert_eq!(result.len(), nsets);
+        Ok(result.into_pyarray(py))
+    }
+
     fn __repr__(&self) -> String {
         format!(
             "Model(q={}, iangle={}, r1={}, r2={}, t1={}, t2={})",

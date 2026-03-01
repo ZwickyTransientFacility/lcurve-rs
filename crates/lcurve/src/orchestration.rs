@@ -317,6 +317,45 @@ pub fn light_curve_comp(
     Ok(LcResult { calc, wdwarf, chisq, wnok, logg1, logg2, rv1, rv2, sfac })
 }
 
+/// Evaluate chi-squared for a batch of parameter sets in parallel.
+///
+/// * `base` - template model (cloned for each parameter set)
+/// * `data` - observed data points (read once, shared across all evaluations)
+/// * `param_names` - names of parameters being varied
+/// * `param_values` - flat row-major array of length `N * ndim`
+/// * `scale` - whether to autoscale each model to the data
+///
+/// Returns a `Vec<f64>` of length N.  Sets that cause errors produce `f64::NAN`.
+pub fn chisq_batch(
+    base: &Model,
+    data: &Data,
+    param_names: &[&str],
+    param_values: &[f64],
+    scale: bool,
+) -> Vec<f64> {
+    let ndim = param_names.len();
+    assert!(
+        ndim > 0 && param_values.len() % ndim == 0,
+        "param_values length must be a multiple of param_names length"
+    );
+    let n = param_values.len() / ndim;
+
+    (0..n)
+        .into_par_iter()
+        .map(|i| {
+            let mut mdl = base.clone();
+            let row = &param_values[i * ndim..(i + 1) * ndim];
+            for (j, name) in param_names.iter().enumerate() {
+                mdl.set_param_value(name, row[j]);
+            }
+            match light_curve_comp(&mdl, data, scale, true) {
+                Ok(res) => res.chisq,
+                Err(_) => f64::NAN,
+            }
+        })
+        .collect()
+}
+
 /// Re-scale fit to minimize chi-squared with a single global factor.
 /// Returns (scale, chisq, wnok).
 fn re_scale(data: &Data, fit: &mut [f64]) -> (f64, f64, f64) {
