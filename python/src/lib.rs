@@ -399,6 +399,170 @@ impl Model {
         Model { inner: self.inner.clone() }
     }
 
+    /// Create a white dwarf binary (CV) model with sensible defaults.
+    ///
+    /// Sets up a cataclysmic variable: WD primary + Roche-filling
+    /// M-dwarf secondary, with optional accretion disc.
+    ///
+    /// Parameters
+    /// ----------
+    /// q : float
+    ///     Mass ratio M2/M1 (default 0.5).
+    /// iangle : float
+    ///     Orbital inclination in degrees (default 82).
+    /// t1 : float
+    ///     WD temperature in K (default 15000).
+    /// t2 : float
+    ///     Secondary temperature in K (default 3500).
+    /// period : float
+    ///     Orbital period in days (default 0.1).
+    /// r1 : float
+    ///     WD radius as fraction of separation (default 0.015).
+    /// disc : bool
+    ///     Include accretion disc (default False).
+    #[staticmethod]
+    #[pyo3(signature = (q=0.5, iangle=82.0, t1=15000.0, t2=3500.0, period=0.1, r1=0.015, disc=false))]
+    fn whitedwarf(
+        q: f64, iangle: f64, t1: f64, t2: f64, period: f64, r1: f64, disc: bool,
+    ) -> PyResult<Self> {
+        // Build a model file string with CV defaults
+        let disc_r1 = if disc { 0.2 } else { 0.0 };
+        let disc_r2 = if disc { 0.45 } else { 0.0 };
+        let disc_temp = if disc { 8000.0 } else { 0.0 };
+        let model_str = format!(
+            r#"q                    = {q} 0.1 0.01 0
+iangle               = {iangle} 2.0 0.1 0
+r1                   = {r1} 0.005 0.001 0
+r2                   = -1 0.01 0.001 0
+cphi3                = 0.015 0.001 0.001 0
+cphi4                = 0.017 0.001 0.001 0
+t1                   = {t1} 500 100 0
+t2                   = {t2} 200 50 0
+spin1                = 1 0.001 0.001 0
+spin2                = 1 0.001 0.001 0
+ldc1_1               = 0.4 0.01 0.01 0
+ldc1_2               = 0.0 0.01 0.01 0
+ldc1_3               = 0.0 0.01 0.01 0
+ldc1_4               = 0.0 0.01 0.01 0
+ldc2_1               = 0.6 0.01 0.01 0
+ldc2_2               = 0.0 0.01 0.01 0
+ldc2_3               = 0.0 0.01 0.01 0
+ldc2_4               = 0.0 0.01 0.01 0
+velocity_scale       = 0 1 1 0
+beam_factor1         = 0 0.1 0.02 0
+beam_factor2         = 0 0.1 0.002 0
+deltat               = 0 0.001 0.001 0
+t0                   = 0.0 0.0001 1e-05 0
+period               = {period} 1e-06 1e-06 0
+gravity_dark1        = 0.25 0.0001 0.0001 0
+gravity_dark2        = 0.08 0.0001 0.0001 0
+absorb               = 1.0 0.001 0.001 0
+slope                = 0 0.001 0.0001 0
+quad                 = 0 0.001 0.0001 0
+cube                 = 0 0.001 0.0001 0
+third                = 0 0.001 0.0001 0
+rdisc1               = {disc_r1} 0.1 0.01 0
+rdisc2               = {disc_r2} 0.1 0.01 0
+height_disc          = 0.02 0.01 0.001 0
+beta_disc            = 2.0 0.1 0.1 0
+temp_disc            = {disc_temp} 500 100 0
+texp_disc            = -0.75 0.1 0.01 0
+lin_limb_disc        = 0.3 0.1 0.01 0
+quad_limb_disc       = 0.0 0.1 0.01 0
+temp_edge            = 0.0 500 100 0
+absorb_edge          = 0.0 0.001 0.001 0
+radius_spot          = 0.0 0.001 0.001 0
+length_spot          = 0.0 0.001 0.001 0
+height_spot          = 0.0 0.001 0.001 0
+expon_spot           = 0.0 0.001 0.001 0
+epow_spot            = 1.0 0.001 0.001 0
+angle_spot           = 0.0 0.001 0.001 0
+yaw_spot             = 0.0 0.001 0.001 0
+temp_spot            = 0.0 0.001 0.001 0
+tilt_spot            = 90.0 0.001 0.001 0
+cfrac_spot           = 0.0 0.001 0.001 0
+stsp11_long          = 0 1 1 0 0
+stsp11_lat           = 0 1 1 0 0
+stsp11_fwhm          = 0 1 1 0 0
+stsp11_tcen          = 0 1 1 0 0
+stsp12_long          = 0 1 1 0 0
+stsp12_lat           = 0 1 1 0 0
+stsp12_fwhm          = 0 1 1 0 0
+stsp12_tcen          = 0 1 1 0 0
+stsp13_long          = 0 1 1 0 0
+stsp13_lat           = 0 1 1 0 0
+stsp13_fwhm          = 0 1 1 0 0
+stsp13_tcen          = 0 1 1 0 0
+stsp21_long          = 0 1 1 0 0
+stsp21_lat           = 0 1 1 0 0
+stsp21_fwhm          = 0 1 1 0 0
+stsp21_tcen          = 0 1 1 0 0
+stsp22_long          = 0 1 1 0 0
+stsp22_lat           = 0 1 1 0 0
+stsp22_fwhm          = 0 1 1 0 0
+stsp22_tcen          = 0 1 1 0 0
+uesp_long1           = 0 1 1 0 0
+uesp_long2           = 0 1 1 0 0
+uesp_lathw           = 0 1 1 0 0
+uesp_taper           = 0 1 1 0 0
+uesp_temp            = 0 1 1 0 0
+delta_phase          = -0.001
+nlat1f               = 50
+nlat2f               = 50
+nlat1c               = 50
+nlat2c               = 50
+delta_phase          = -0.001
+nlat1f               = 50
+nlat2f               = 50
+nlat1c               = 50
+nlat2c               = 50
+npole                = 0
+nlatfill             = 4
+nlngfill             = 4
+lfudge               = 0.05
+llo                  = 0.0
+lhi                  = 0.0
+wavelength           = 4700
+roche1               = 1
+roche2               = 1
+eclipse1             = 1
+eclipse2             = 1
+glens1               = 0
+use_radii            = 0
+tperiod              = 0
+gdark_bolom1         = 0
+gdark_bolom2         = 0
+mucrit1              = 0.0
+mucrit2              = 0.0
+limb1                = Claret
+limb2                = Claret
+mirror               = 0
+add_disc             = {add_disc}
+opaque               = 1
+add_spot             = 0
+nspot                = 0
+nrad                 = 50
+phase1               = -0.2
+phase2               = 1.2
+iscale               = 1
+"#,
+            q = q, iangle = iangle, t1 = t1, t2 = t2, period = period,
+            r1 = r1, disc_r1 = disc_r1, disc_r2 = disc_r2,
+            disc_temp = disc_temp,
+            add_disc = if disc { 1 } else { 0 },
+        );
+
+        // Write to a temp file, load the model, clean up
+        let tmp_path = "/tmp/_lcurve_rs_whitedwarf_tmp.dat";
+        std::fs::write(tmp_path, &model_str)
+            .map_err(|e| PyRuntimeError::new_err(format!("write tmpfile: {}", e)))?;
+        let result = lcurve::model::Model::from_file(tmp_path);
+        let _ = std::fs::remove_file(tmp_path);
+        let inner = result.map_err(|e| PyValueError::new_err(format!("parse model: {}", e)))?;
+
+        Ok(Model { inner })
+    }
+
     // ---- Convenience properties for the most common parameters ----
 
     #[getter] fn q(&self) -> f64 { self.inner.q.value }
@@ -682,12 +846,245 @@ fn _has_cuda() -> bool {
 }
 
 /// lcurve_rs — Python bindings for the Rust lcurve light curve engine.
+// ---------------------------------------------------------------------------
+// phoebe-rs: Eclipsing binary light curve synthesizer
+// ---------------------------------------------------------------------------
+
+/// Eclipsing binary parameters.
+#[pyclass(name = "EBParams")]
+#[derive(Clone)]
+struct PyEBParams {
+    inner: phoebe_rs::EBParams,
+}
+
+#[pymethods]
+impl PyEBParams {
+    /// Create a contact binary (W UMa) system.
+    ///
+    /// Args:
+    ///     q: mass ratio M2/M1
+    ///     inclination: orbital inclination in degrees (90 = edge-on)
+    ///     t1: effective temperature of primary (K), default 6000
+    ///     t2: effective temperature of secondary (K), default 5500
+    ///     period: orbital period in days, default 0.35
+    ///     ld1: limb darkening coefficient for primary, default 0.5
+    ///     ld2: limb darkening coefficient for secondary, default 0.5
+    ///     l3: third light fraction, default 0.0
+    ///     n_grid: surface grid resolution, default 40
+    #[staticmethod]
+    #[pyo3(signature = (q, inclination, t1=6000.0, t2=5500.0, period=0.35, fillout=1.0, ld1=0.5, ld2=0.5, l3=0.0, phi0=0.0, n_grid=40, passband="bolometric"))]
+    fn contact(q: f64, inclination: f64, t1: f64, t2: f64, period: f64,
+               fillout: f64, ld1: f64, ld2: f64, l3: f64, phi0: f64,
+               n_grid: usize, passband: &str) -> Self {
+        let mut p = phoebe_rs::EBParams::contact(q, inclination);
+        p.t_eff1 = t1;
+        p.t_eff2 = t2;
+        p.period = period;
+        p.fillout1 = fillout;
+        p.fillout2 = fillout;
+        p.ld1 = ld1;
+        p.ld2 = ld2;
+        p.l3 = l3;
+        p.phi0 = phi0;
+        p.n_grid = n_grid;
+        p.passband = phoebe_rs::Passband::from_str(passband)
+            .unwrap_or(phoebe_rs::Passband::Bolometric);
+        Self { inner: p }
+    }
+
+    /// Create a detached binary system.
+    ///
+    /// Args:
+    ///     q: mass ratio M2/M1
+    ///     inclination: orbital inclination in degrees
+    ///     r1_frac: Roche lobe filling factor for primary (0-1)
+    ///     r2_frac: Roche lobe filling factor for secondary (0-1)
+    ///     t1, t2, period, ld1, ld2, l3, n_grid: as for contact()
+    #[staticmethod]
+    #[pyo3(signature = (q, inclination, r1_frac, r2_frac, t1=6000.0, t2=5500.0, period=1.0, phi0=0.0, ld1=0.5, ld2=0.5, l3=0.0, n_grid=40, passband="bolometric"))]
+    fn detached(q: f64, inclination: f64, r1_frac: f64, r2_frac: f64,
+                t1: f64, t2: f64, period: f64, phi0: f64,
+                ld1: f64, ld2: f64, l3: f64, n_grid: usize, passband: &str) -> Self {
+        let mut p = phoebe_rs::EBParams::detached(q, inclination, r1_frac, r2_frac);
+        p.t_eff1 = t1;
+        p.t_eff2 = t2;
+        p.period = period;
+        p.phi0 = phi0;
+        p.ld1 = ld1;
+        p.ld2 = ld2;
+        p.l3 = l3;
+        p.passband = phoebe_rs::Passband::from_str(passband)
+            .unwrap_or(phoebe_rs::Passband::Bolometric);
+        p.n_grid = n_grid;
+        Self { inner: p }
+    }
+
+    fn __repr__(&self) -> String {
+        format!("EBParams(q={}, i={}, T1={}, T2={}, P={})",
+                self.inner.q, self.inner.inclination,
+                self.inner.t_eff1, self.inner.t_eff2, self.inner.period)
+    }
+}
+
+/// Compute an eclipsing binary light curve.
+///
+/// Args:
+///     params: EBParams object
+///     phases: numpy array of orbital phases (0 to 1)
+///     method: "numerical" (default, full Roche mesh) or "analytic" (fast
+///             Eggleton + circle-circle, ~350x faster, suitable for MCMC)
+///
+/// Returns:
+///     dict with keys 'phases', 'flux' (and 'flux1', 'flux2' for numerical)
+#[pyfunction]
+#[pyo3(signature = (params, phases, method="numerical"))]
+fn eb_lightcurve<'py>(
+    py: Python<'py>,
+    params: &PyEBParams,
+    phases: numpy::PyReadonlyArray1<'py, f64>,
+    method: &str,
+) -> PyResult<Bound<'py, PyDict>> {
+    let ph = phases.as_slice()
+        .map_err(|e| PyRuntimeError::new_err(format!("phases array: {}", e)))?;
+
+    let dict = PyDict::new(py);
+
+    match method {
+        "analytic" => {
+            let lc = phoebe_rs::compute_analytic(&params.inner, ph);
+            dict.set_item("phases", lc.phases.into_pyarray(py))?;
+            dict.set_item("flux", lc.flux.into_pyarray(py))?;
+        },
+        "numerical" | _ => {
+            let lc = phoebe_rs::compute_lightcurve(&params.inner, ph)
+                .map_err(|e| PyRuntimeError::new_err(format!("{:?}", e)))?;
+            dict.set_item("phases", lc.phases.into_pyarray(py))?;
+            dict.set_item("flux", lc.flux.into_pyarray(py))?;
+            dict.set_item("flux1", lc.flux1.into_pyarray(py))?;
+            dict.set_item("flux2", lc.flux2.into_pyarray(py))?;
+        },
+    }
+
+    Ok(dict)
+}
+
+/// Search for best-fit mass ratio by grid search.
+///
+/// Computes light curves for a grid of q values and returns the
+/// chi-squared for each, given observed phases, magnitudes, and errors.
+///
+/// Args:
+///     phases: observed orbital phases
+///     mags: observed magnitudes
+///     errs: magnitude uncertainties
+///     inclination: fixed inclination (degrees)
+///     q_min: minimum mass ratio to search
+///     q_max: maximum mass ratio to search
+///     n_q: number of q values in grid
+///     t1: primary temperature (K)
+///     t2: secondary temperature (K)
+///     n_grid: surface grid resolution
+///
+/// Returns:
+///     dict with 'q_grid', 'chi2', 'best_q', 'best_chi2'
+#[pyfunction]
+#[pyo3(signature = (phases, mags, errs, inclination, q_min=0.05, q_max=1.0, n_q=50, t1=6000.0, t2=5500.0, n_grid=30))]
+fn q_search<'py>(
+    py: Python<'py>,
+    phases: numpy::PyReadonlyArray1<'py, f64>,
+    mags: numpy::PyReadonlyArray1<'py, f64>,
+    errs: numpy::PyReadonlyArray1<'py, f64>,
+    inclination: f64,
+    q_min: f64,
+    q_max: f64,
+    n_q: usize,
+    t1: f64,
+    t2: f64,
+    n_grid: usize,
+) -> PyResult<Bound<'py, PyDict>> {
+    let ph = phases.as_slice()
+        .map_err(|e| PyRuntimeError::new_err(format!("{}", e)))?;
+    let mg = mags.as_slice()
+        .map_err(|e| PyRuntimeError::new_err(format!("{}", e)))?;
+    let er = errs.as_slice()
+        .map_err(|e| PyRuntimeError::new_err(format!("{}", e)))?;
+
+    let n = ph.len();
+    if mg.len() != n || er.len() != n {
+        return Err(PyValueError::new_err("phases, mags, errs must have same length"));
+    }
+
+    // Convert mags to flux (relative)
+    let mag_ref = mg.iter().cloned().fold(f64::INFINITY, f64::min);
+    let obs_flux: Vec<f64> = mg.iter().map(|m| 10f64.powf(-0.4 * (m - mag_ref))).collect();
+    let obs_flux_err: Vec<f64> = er.iter().enumerate()
+        .map(|(i, e)| obs_flux[i] * 0.4 * std::f64::consts::LN_10 * e)
+        .collect();
+
+    let q_grid: Vec<f64> = (0..n_q)
+        .map(|i| q_min + (q_max - q_min) * i as f64 / (n_q - 1) as f64)
+        .collect();
+
+    let mut chi2_grid = Vec::with_capacity(n_q);
+    let mut best_q = q_min;
+    let mut best_chi2 = f64::INFINITY;
+
+    for &q in &q_grid {
+        let mut params = phoebe_rs::EBParams::contact(q, inclination);
+        params.t_eff1 = t1;
+        params.t_eff2 = t2;
+        params.n_grid = n_grid;
+
+        let lc = match phoebe_rs::compute_lightcurve(&params, ph) {
+            Ok(lc) => lc,
+            Err(_) => {
+                chi2_grid.push(f64::INFINITY);
+                continue;
+            }
+        };
+
+        // Scale model flux to best match observed
+        let mut sum_wxy = 0.0;
+        let mut sum_wxx = 0.0;
+        for i in 0..n {
+            let w = 1.0 / (obs_flux_err[i] * obs_flux_err[i] + 1e-30);
+            sum_wxy += w * obs_flux[i] * lc.flux[i];
+            sum_wxx += w * lc.flux[i] * lc.flux[i];
+        }
+        let scale = if sum_wxx > 0.0 { sum_wxy / sum_wxx } else { 1.0 };
+
+        let chi2: f64 = (0..n)
+            .map(|i| {
+                let resid = obs_flux[i] - scale * lc.flux[i];
+                let w = 1.0 / (obs_flux_err[i] * obs_flux_err[i] + 1e-30);
+                w * resid * resid
+            })
+            .sum();
+
+        chi2_grid.push(chi2);
+        if chi2 < best_chi2 {
+            best_chi2 = chi2;
+            best_q = q;
+        }
+    }
+
+    let dict = PyDict::new(py);
+    dict.set_item("q_grid", q_grid.into_pyarray(py))?;
+    dict.set_item("chi2", chi2_grid.into_pyarray(py))?;
+    dict.set_item("best_q", best_q)?;
+    dict.set_item("best_chi2", best_chi2)?;
+    Ok(dict)
+}
+
 #[pymodule]
 fn _lcurve_rs(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<Model>()?;
     m.add_class::<LcResult>()?;
+    m.add_class::<PyEBParams>()?;
     m.add_function(wrap_pyfunction!(_set_device, m)?)?;
     m.add_function(wrap_pyfunction!(_get_device, m)?)?;
     m.add_function(wrap_pyfunction!(_has_cuda, m)?)?;
+    m.add_function(wrap_pyfunction!(eb_lightcurve, m)?)?;
+    m.add_function(wrap_pyfunction!(q_search, m)?)?;
     Ok(())
 }

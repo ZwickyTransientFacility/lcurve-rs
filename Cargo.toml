@@ -1,5 +1,5 @@
 [workspace]
-members = ["crates/subs", "crates/roche", "crates/lcurve", "crates/lcurve-cuda", "python"]
+members = ["crates/subs", "crates/roche", "crates/lcurve", "crates/lcurve-cuda", "crates/phoebe-rs", "python"]
 resolver = "2"
 
 [package]

@@ -15,5 +15,6 @@ cuda = ["dep:lcurve-cuda"]
 [dependencies]
 lcurve = { path = "../crates/lcurve" }
 lcurve-cuda = { path = "../crates/lcurve-cuda", optional = true }
+phoebe-rs = { path = "../crates/phoebe-rs" }
 pyo3 = { version = "0.23", features = ["extension-module"] }
 numpy = "0.23"

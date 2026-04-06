@@ -1,0 +1,10 @@
+[package]
+name = "phoebe-rs"
+version = "0.1.0"
+edition = "2021"
+description = "Minimal eclipsing binary light curve synthesizer for mass ratio extraction"
+
+[dependencies]
+lcurve-roche = { path = "../roche" }
+lcurve-subs = { path = "../subs" }
+rayon = "1.10"
