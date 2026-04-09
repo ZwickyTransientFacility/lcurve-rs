@@ -1076,6 +1076,217 @@ fn q_search<'py>(
     Ok(dict)
 }
 
+// ---------------------------------------------------------------------------
+// Ellipsoidal variability (ELL) analytical model
+// Morris & Naftilan (1993), as used by Rowan et al. (2021)
+// ---------------------------------------------------------------------------
+
+/// Compute an analytical ellipsoidal light curve.
+///
+/// The model is a 3-term Fourier series with amplitudes set by the
+/// tidal distortion physics (reflection, ellipsoidal, Doppler beaming):
+///
+///   ΔL/L̄ = A₁ cos(φ) + A₂ cos(2φ) + A₃ cos(3φ)
+///
+/// In the fitting mode (physical=false), A₁, A₂, A₃ are free parameters.
+/// In the physical mode (physical=true), they are computed from q, i, R*/a,
+/// and limb/gravity darkening coefficients u, τ.
+///
+/// Args:
+///     phases: orbital phases (0 to 1)
+///     a1, a2, a3: Fourier amplitudes (fitting mode)
+///     mean_mag: mean magnitude offset
+///
+/// Returns: dict with 'phases', 'mags'
+#[pyfunction]
+#[pyo3(signature = (phases, a1, a2, a3, mean_mag=0.0))]
+fn ell_lightcurve<'py>(
+    py: Python<'py>,
+    phases: numpy::PyReadonlyArray1<'py, f64>,
+    a1: f64,
+    a2: f64,
+    a3: f64,
+    mean_mag: f64,
+) -> PyResult<Bound<'py, PyDict>> {
+    let ph = phases.as_slice()?;
+    let n = ph.len();
+
+    let mut mags = Vec::with_capacity(n);
+    for &phi in ph {
+        let angle = 2.0 * std::f64::consts::PI * phi;
+        let flux_frac = a1 * angle.cos()
+            + a2 * (2.0 * angle).cos()
+            + a3 * (3.0 * angle).cos();
+        // Convert fractional flux change to magnitude
+        let mag = mean_mag - 2.5 * (1.0 + flux_frac).log10();
+        mags.push(mag);
+    }
+
+    let dict = PyDict::new(py);
+    dict.set_item("phases", ph.to_vec().into_pyarray(py))?;
+    dict.set_item("mags", mags.into_pyarray(py))?;
+    Ok(dict)
+}
+
+/// Fit the ELL analytical model to phase-folded magnitudes.
+///
+/// Fits ΔL/L̄ = A₁ cos(φ) + A₂ cos(2φ) + A₃ cos(3φ) + offset
+/// using weighted least squares.
+///
+/// Also fits a simple cosine: m = B cos(2φ) + offset
+/// and computes R = χ²_ell / χ²_cos (Rowan et al. 2021 selection criterion).
+///
+/// Args:
+///     phases: orbital phases (0 to 1)
+///     mags: observed magnitudes
+///     errs: magnitude uncertainties
+///
+/// Returns: dict with 'a1', 'a2', 'a3', 'chi2_ell', 'chi2_cos', 'R',
+///          'ell_model', 'cos_model'
+#[pyfunction]
+fn fit_ell<'py>(
+    py: Python<'py>,
+    phases: numpy::PyReadonlyArray1<'py, f64>,
+    mags: numpy::PyReadonlyArray1<'py, f64>,
+    errs: numpy::PyReadonlyArray1<'py, f64>,
+) -> PyResult<Bound<'py, PyDict>> {
+    let ph = phases.as_slice()?;
+    let mag = mags.as_slice()?;
+    let err = errs.as_slice()?;
+    let n = ph.len();
+
+    if n < 5 {
+        return Err(PyValueError::new_err("Need at least 5 data points"));
+    }
+
+    let pi2 = 2.0 * std::f64::consts::PI;
+
+    // --- ELL model: m = c0 + a1*cos(φ) + a2*cos(2φ) + a3*cos(3φ) ---
+    // Weighted least squares: X^T W X β = X^T W y
+    // 4 parameters: c0, a1, a2, a3
+
+    let mut xtwx = [[0.0f64; 4]; 4];
+    let mut xtwy = [0.0f64; 4];
+
+    for i in 0..n {
+        let w = 1.0 / (err[i] * err[i]);
+        let angle = pi2 * ph[i];
+        let basis = [1.0, angle.cos(), (2.0 * angle).cos(), (3.0 * angle).cos()];
+
+        for r in 0..4 {
+            for c in 0..4 {
+                xtwx[r][c] += w * basis[r] * basis[c];
+            }
+            xtwy[r] += w * basis[r] * mag[i];
+        }
+    }
+
+    // Solve 4x4 system (Gaussian elimination)
+    let mut aug = [[0.0f64; 5]; 4];
+    for r in 0..4 {
+        for c in 0..4 {
+            aug[r][c] = xtwx[r][c];
+        }
+        aug[r][4] = xtwy[r];
+    }
+
+    for col in 0..4 {
+        // Pivot
+        let mut max_row = col;
+        let mut max_val = aug[col][col].abs();
+        for row in (col + 1)..4 {
+            if aug[row][col].abs() > max_val {
+                max_val = aug[row][col].abs();
+                max_row = row;
+            }
+        }
+        aug.swap(col, max_row);
+
+        let pivot = aug[col][col];
+        if pivot.abs() < 1e-30 {
+            return Err(PyRuntimeError::new_err("Singular matrix in ELL fit"));
+        }
+
+        for c in col..5 {
+            aug[col][c] /= pivot;
+        }
+        for row in 0..4 {
+            if row == col {
+                continue;
+            }
+            let factor = aug[row][col];
+            for c in col..5 {
+                aug[row][c] -= factor * aug[col][c];
+            }
+        }
+    }
+
+    let c0_ell = aug[0][4];
+    let a1 = aug[1][4];
+    let a2 = aug[2][4];
+    let a3 = aug[3][4];
+
+    // Compute chi2_ell and model
+    let mut chi2_ell = 0.0;
+    let mut ell_model = Vec::with_capacity(n);
+    for i in 0..n {
+        let angle = pi2 * ph[i];
+        let pred = c0_ell + a1 * angle.cos() + a2 * (2.0 * angle).cos() + a3 * (3.0 * angle).cos();
+        ell_model.push(pred);
+        let resid = (mag[i] - pred) / err[i];
+        chi2_ell += resid * resid;
+    }
+
+    // --- Cosine model: m = c0 + b*cos(2φ) ---
+    // 2 parameters: c0, b
+    let mut xtwx2 = [[0.0f64; 2]; 2];
+    let mut xtwy2 = [0.0f64; 2];
+
+    for i in 0..n {
+        let w = 1.0 / (err[i] * err[i]);
+        let cos2 = (2.0 * pi2 * ph[i]).cos();
+        let basis = [1.0, cos2];
+        for r in 0..2 {
+            for c in 0..2 {
+                xtwx2[r][c] += w * basis[r] * basis[c];
+            }
+            xtwy2[r] += w * basis[r] * mag[i];
+        }
+    }
+
+    let det = xtwx2[0][0] * xtwx2[1][1] - xtwx2[0][1] * xtwx2[1][0];
+    let c0_cos = (xtwy2[0] * xtwx2[1][1] - xtwy2[1] * xtwx2[0][1]) / det;
+    let b_cos = (xtwy2[1] * xtwx2[0][0] - xtwy2[0] * xtwx2[1][0]) / det;
+
+    let mut chi2_cos = 0.0;
+    let mut cos_model = Vec::with_capacity(n);
+    for i in 0..n {
+        let pred = c0_cos + b_cos * (2.0 * pi2 * ph[i]).cos();
+        cos_model.push(pred);
+        let resid = (mag[i] - pred) / err[i];
+        chi2_cos += resid * resid;
+    }
+
+    let r_ratio = if chi2_cos > 0.0 {
+        chi2_ell / chi2_cos
+    } else {
+        f64::INFINITY
+    };
+
+    let dict = PyDict::new(py);
+    dict.set_item("a1", a1)?;
+    dict.set_item("a2", a2)?;
+    dict.set_item("a3", a3)?;
+    dict.set_item("c0_ell", c0_ell)?;
+    dict.set_item("b_cos", b_cos)?;
+    dict.set_item("chi2_ell", chi2_ell)?;
+    dict.set_item("chi2_cos", chi2_cos)?;
+    dict.set_item("R", r_ratio)?;
+    dict.set_item("ell_model", ell_model.into_pyarray(py))?;
+    dict.set_item("cos_model", cos_model.into_pyarray(py))?;
+    Ok(dict)
+}
+
 #[pymodule]
 fn _lcurve_rs(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<Model>()?;
@@ -1086,5 +1297,7 @@ fn _lcurve_rs(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(_has_cuda, m)?)?;
     m.add_function(wrap_pyfunction!(eb_lightcurve, m)?)?;
     m.add_function(wrap_pyfunction!(q_search, m)?)?;
+    m.add_function(wrap_pyfunction!(ell_lightcurve, m)?)?;
+    m.add_function(wrap_pyfunction!(fit_ell, m)?)?;
     Ok(())
 }

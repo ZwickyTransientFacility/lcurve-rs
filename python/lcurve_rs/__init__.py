@@ -15,12 +15,12 @@ Example
 
 from lcurve_rs._lcurve_rs import Model, LcResult
 from lcurve_rs._lcurve_rs import _set_device, _get_device, _has_cuda
-from lcurve_rs._lcurve_rs import EBParams, eb_lightcurve, q_search
+from lcurve_rs._lcurve_rs import EBParams, eb_lightcurve, q_search, ell_lightcurve, fit_ell
 from lcurve_rs.fitting import Fitter, Prior, FitResult
 
 __all__ = [
     "Model", "LcResult", "Fitter", "Prior", "FitResult",
-    "EBParams", "eb_lightcurve", "q_search",
+    "EBParams", "eb_lightcurve", "q_search", "ell_lightcurve", "fit_ell",
     "set_device", "get_device", "has_cuda",
 ]
 __version__ = "0.1.0"
